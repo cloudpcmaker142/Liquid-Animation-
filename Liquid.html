@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Harmony | Liquid ASCII</title>
+    <style>
+        :root {
+            --bg: #ffffff; /* Your specified background */
+        }
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg);
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="ascii-canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('ascii-canvas');
+const ctx = canvas.getContext('2d');
+
+let cols, rows;
+let frame = 0;
+let patternIndex = 0;
+let transition = 0;
+let isMouseDown = false;
+let mousePos = { x: 0, y: 0 };
+
+const RECT_W = 14;
+const RECT_H = 14;
+
+const patterns = [
+    (x, y, t, w, h) => { // Balance
+        const dx = x - w/2, dy = y - h/2;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        return Math.sin(dx*0.15 + t) * Math.cos(dy*0.15 + t) * Math.sin(d*0.05 - t);
+    },
+    (x, y, t, w, h) => { // Flow
+        const ang = Math.atan2(y - h/2, x - w/2);
+        const d = Math.sqrt((x-w/2)**2 + (y-h/2)**2);
+        return Math.sin(ang * 5 + t) * Math.cos(d * 0.05 - t);
+    },
+    (x, y, t, w, h) => { // Source
+        const n = Math.sin(x*0.1 + t) + Math.sin(y*0.12 + t*1.2);
+        return Math.sin((x+y)*0.05 + n + t);
+    }
+];
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols = Math.ceil(canvas.width / RECT_W);
+    rows = Math.ceil(canvas.height / RECT_H);
+}
+
+function render() {
+    const t = frame * 0.04;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const p1 = patterns[patternIndex];
+    const p2 = patterns[(patternIndex + 1) % patterns.length];
+    transition = Math.max(0, transition - 0.01);
+
+    for(let y=0; y<rows; y++){
+        for(let x=0; x<cols; x++){
+            let val = p1(x, y, t, cols, rows)*(1-transition) + p2(x, y, t, cols, rows)*transition;
+
+            // mouse ripple
+            if(isMouseDown){
+                const mx = (mousePos.x / canvas.width) * cols;
+                const my = (mousePos.y / canvas.height) * rows;
+                const dist = Math.sqrt((x-mx)**2 + (y-my)**2);
+                val += Math.exp(-dist*0.18) * Math.sin(frame*0.1 + dist*0.5)*2;
+            }
+
+            // normalize
+            const norm = (val + 1)/2;
+
+            // Cinematic Apple-like color
+            const hue = (t*15 + norm*50 + x/cols*40 + y/rows*20) % 360;
+            const sat = 40 + norm*40; 
+            const light = 30 + norm*50;
+
+            ctx.fillStyle = `hsl(${hue}, ${sat}%, ${light}%)`;
+
+            // Draw rectangle
+            ctx.fillRect(x*RECT_W, y*RECT_H, RECT_W, RECT_H);
+        }
+    }
+
+    frame++;
+    requestAnimationFrame(render);
+}
+
+// Resize and mouse events
+window.addEventListener('resize', resize);
+window.addEventListener('mousedown', () => isMouseDown = true);
+window.addEventListener('mouseup', () => isMouseDown = false);
+window.addEventListener('mousemove', e => { mousePos.x = e.clientX; mousePos.y = e.clientY; });
+
+// Auto-switch patterns every 8 seconds
+setInterval(() => {
+    patternIndex = (patternIndex + 1) % patterns.length;
+    transition = 1;
+}, 8000);
+
+resize();
+render();
+</script>
+</body>
+</html> 
